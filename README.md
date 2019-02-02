@@ -1,6 +1,6 @@
 # teensy tft sd browser
 uSD card directory browser for teensy 3.6
-![directory browser](images/IMG_1023.jpg)
+![directory browser](images/IMG_1023-sm.jpg)
 **(work in progress)**
 This is a quick proof-of-concept to display contents of uSD card, and allow user to select file or directory. 
 * display files and directories on a ST7735 tft display 128x128
