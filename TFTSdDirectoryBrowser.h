@@ -5,14 +5,12 @@
 #ifndef ARDUINO_MIDI_WRITER_TFTSDDIRECTORYBROWSER_H
 #define ARDUINO_MIDI_WRITER_TFTSDDIRECTORYBROWSER_H
 
-#ifndef USE_SD_H
-#define USE_SD_H 0
-#endif
+#include "directives.h"
 
 #if ARDUINO >= 100
   #include <Adafruit_GFX.h>    // Core graphics library
 
-  #if USE_SD_H
+  #if USE_LEGACY_SD_LIB
     #include <SD.h>
   #else  // USE_SD_H
     #include "SdFs.h"
@@ -27,7 +25,11 @@ class TFTSdDirectoryBrowser {
 public:
     inline TFTSdDirectoryBrowser(
                 Adafruit_GFX *tft,
+                #if USE_LEGACY_SD_LIB
+                SDClass *sd,
+                #else
                 SdFat *sd,
+                #endif
                 int nMax,
 
                 uint16_t cDirectoryForeground,
@@ -99,14 +101,18 @@ private:
     uint16_t _cFileSelectedBackground;
 
     File file;
-    File dirFile;
+    File dirFile;               
+#if USE_LEGACY_SD_LIB
+    SDClass *_sd;
+#else
     SdFat *_sd;
+#endif    
     Adafruit_GFX *_tft;
     char **filenames;
     bool *isDir;
     uint16_t *dirIndex;
 
-
+    File open(char *s);
     bool open(char *filename, File &file, File &dirFile);
     bool isHidden(const File &file);
     bool openNext(File &file, File &dirFile);
