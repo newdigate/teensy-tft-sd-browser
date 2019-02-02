@@ -9,14 +9,20 @@ unsigned long TFTSdDirectoryBrowser::getTotalFileCount() {
 }
 
 void TFTSdDirectoryBrowser::initialize() {
-    dirFile = _sd->open("/");
-
+    dirFile = open("/");
     while (openNext(file, dirFile)) {
         if (!isHidden(file))
             _totalFiles++;
-
         file.close();
     }
+}
+
+File TFTSdDirectoryBrowser::open(char *s){
+#if USE_LEGACY_SD_LIB
+    return SD.open(s, FILE_READ);
+#else
+    return _sd->open(s);
+#endif
 }
 
 void TFTSdDirectoryBrowser::reload() {
@@ -70,7 +76,7 @@ void TFTSdDirectoryBrowser::update() {
 }
 
 bool TFTSdDirectoryBrowser::isHidden(const File &file) {
-#if USE_SD_H
+#if USE_LEGACY_SD_LIB
     return false;
 #else
     return file.isHidden();
@@ -78,7 +84,7 @@ bool TFTSdDirectoryBrowser::isHidden(const File &file) {
 }
 
 void TFTSdDirectoryBrowser::rewind(File &file) {
-#if USE_SD_H
+#if USE_LEGACY_SD_LIB
     dirFile.rewindDirectory();
 #else
     dirFile.rewind();
@@ -86,7 +92,7 @@ void TFTSdDirectoryBrowser::rewind(File &file) {
 }
 
 void TFTSdDirectoryBrowser::getFileName(File &file, char *buf) {
-#if USE_SD_H
+#if USE_LEGACY_SD_LIB
     strcpy(buf, file.name());
 #else
     char *filename = new char[128] ;
@@ -97,7 +103,7 @@ void TFTSdDirectoryBrowser::getFileName(File &file, char *buf) {
 }
 
 void TFTSdDirectoryBrowser::openFileIndex(File &file, File &dir, int index) {
-#if USE_SD_H
+#if USE_LEGACY_SD_LIB
     file = SD.open(filenames[index], FILE_READ);
 #else
     file.open(&dir, dirIndex[index], O_RDONLY);
@@ -105,7 +111,7 @@ void TFTSdDirectoryBrowser::openFileIndex(File &file, File &dir, int index) {
 }
 
 bool TFTSdDirectoryBrowser::isSubDir(File &file) {
-#if USE_SD_H
+#if USE_LEGACY_SD_LIB
     return file.isDirectory();
 #else
     return file.isDirectory();
@@ -146,7 +152,7 @@ void TFTSdDirectoryBrowser::setSelectFileIndex(int index) {
 
 
 bool TFTSdDirectoryBrowser::openNext(File &file, File &dirFile) {
-#if USE_SD_H
+#if USE_LEGACY_SD_LIB
         file = dirFile.openNextFile(FILE_READ);
         return file;
 #else
@@ -155,8 +161,8 @@ bool TFTSdDirectoryBrowser::openNext(File &file, File &dirFile) {
 }
 
 bool TFTSdDirectoryBrowser::open(char *filename, File &file, File &dirFile) {
-#if USE_SD_H
-        file = dirFile.open(filename, FILE_READ);
+#if USE_LEGACY_SD_LIB
+        file = SD.open(filename, FILE_READ);
         return file;
 #else
         return file.open(&dirFile, filename, O_RDONLY);
