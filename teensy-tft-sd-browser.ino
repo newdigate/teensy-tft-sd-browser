@@ -47,8 +47,9 @@ const uint8_t SD_CS_PIN = SS;
 const uint8_t SD_CS_PIN = SDCARD_SS_PIN;
 #endif  // SDCARD_SS_PIN
 
-// Try to select the best SD card configuration.
-#if HAS_SDIO_CLASS
+#if USE_SD_H
+// using regular SD library
+#elif HAS_SDIO_CLASS
 #define SD_CONFIG SdioConfig(FIFO_SDIO)
 #elif ENABLE_DEDICATED_SPI
 #define SD_CONFIG SdSpiConfig(SD_CS_PIN, DEDICATED_SPI)
@@ -76,12 +77,16 @@ long totalFiles = 0;
 void setup() {
   Serial.begin(9600);
   while (!Serial) {}
-  delay(1000);
-  
+
+  #if USE_SD_H
+  if (!SD.begin(BUILTIN_SDCARD)) {
+  }
+  #else
   if (!SD.begin(SD_CONFIG)) {
     SD.initErrorHalt(&Serial);
   }
-  
+  #endif
+
   tft.initR(INITR_GREENTAB);
   tft.fillScreen(ST7735_BLACK);
   tft.setRotation(1);
@@ -90,36 +95,64 @@ void setup() {
   tft.setTextWrap(false);
   
   dirFile = SD.open("/");
-  
-  while (file.openNext(&dirFile, O_RDONLY)) {
-    if (!file.isHidden())
+
+  while (openNext(file, dirFile)) {
+    //Serial.println( file.name());
+    if (!isHidden(file))
       totalFiles++;
+      
     file.close();
   }
   Serial.print("totalFiles:");
-  Serial.print(totalFiles, DEC);
+  Serial.println(totalFiles, DEC);
   loadDirectory();
   knob.write(0);
   positionLeft = 0;
   displayDirectory();
 }
 
+
+bool isHidden(const File &file) {
+  #if USE_SD_H
+  return false;
+  #else
+  return file.isHidden();
+  #endif
+}
+
+bool openNext(File &file, File &dirFile) {
+  #if USE_SD_H
+  file = dirFile.openNextFile(O_RDONLY);
+  return file;
+  #else
+  return file.openNext(&dirFile, O_RDONLY);
+  #endif 
+}
+
+void rewind(File &file) {
+  #if USE_SD_H
+    dirFile.rewindDirectory();
+  #else
+    dirFile.rewind();
+  #endif 
+}
+
 void loadDirectory() {
-  //Serial.println("loadDirectory()");
+
   Serial.print("currentPage:");
   Serial.println(currentPage, DEC);
+  rewind(dirFile);
   
-  dirFile.rewind();
   if (currentPage > 0) {
 
     for (int i=0; i<currentPage; i++){
       int nn = 0;
-      while (nn < nMax && file.openNext(&dirFile, O_RDONLY)) {
-        if (!file.isHidden()){
+      while (nn < nMax && openNext(file, dirFile)) {
+        if (!isHidden(file)){
           
-          Serial.print("skip:");         
-          file.printName(&Serial);
-          Serial.println();
+          //Serial.print("skip:");         
+          //file.printName(&Serial);
+          //Serial.println();
           nn++;
         }
         file.close();
@@ -134,13 +167,13 @@ void loadDirectory() {
  
   n = 0;
   int total = 0;
-  while (n < nMax && file.openNext(&dirFile, O_RDONLY)) {
+  while (n < nMax && openNext(file, dirFile)) {
     // Skip hidden files.
-    if (  !file.isHidden()) {
-      char filename[32] ;
-      file.getName(filename, 32);
+    if (  !isHidden(file)){
       filenames[n] = new char[32];
-      strcpy(filenames[n], filename);
+
+      getFileName(file, filenames[n]);
+
       // Save dirIndex of file in directory.
       dirIndex[n] = total + (currentPage*nMax);
       n++;
@@ -149,7 +182,16 @@ void loadDirectory() {
     file.close();
   }
 }
-
+void getFileName(File &file, char *buf) {
+  #if USE_SD_H
+  strcpy(buf, file.name());
+  #else
+  char *filename = new char[32] ;
+  file.getName(filename, 32);     
+  strcpy(buf, filename);
+  delete [] filename;
+  #endif
+}
 void displayDirectory() {
   //Serial.print("displayDirectory()");
 
@@ -187,8 +229,8 @@ void loop() {
     
     if (newLeft != positionLeft || newPage != currentPage) {
 
-      Serial.print("pos: ");
-      Serial.println(newLeft);
+      //Serial.print("pos: ");
+      //Serial.println(newLeft);
       
       if (newPage != currentPage) {
         currentPage = newPage;
@@ -209,11 +251,28 @@ void loop() {
   }
 }
 
+void openFileIndex(File &file, File &dir, int index)
+{
+  #if USE_SD_H
+  file = SD.open(filenames[index], O_RDONLY);
+  #else
+  file.open(&dir, dirIndex[index], O_RDONLY);
+  #endif
+}
+
+bool isSubDir(File &file) {
+  #if USE_SD_H
+  return file.isDirectory();
+  #else
+  return file.isSubDir();
+  #endif  
+}
+
 void deselectFile(int i) {
   tft.setCursor(1, i * 8 +1 );
   
-  file.open(&dirFile,filenames[i], O_RDONLY);
-  if (!file.isSubDir()) {
+  openFileIndex(file, dirFile, i);
+  if (!isSubDir(file)) {
     tft.setTextColor(ST7735_BLUE, ST7735_BLACK);  
   } else
     tft.setTextColor(ST7735_CYAN, ST7735_BLACK);
@@ -225,8 +284,8 @@ void deselectFile(int i) {
 
 void selectFile(int i) {
   tft.setCursor(1, i * 8 +1 );
-  file.open(&dirFile, filenames[i], O_RDONLY);
-  if (!file.isSubDir()) {
+  openFileIndex(file, dirFile, i);
+  if (!isSubDir(file)) {
     tft.setTextColor(ST7735_MAGENTA, ST7735_BLUE);  
   } else
     tft.setTextColor(ST7735_CYAN, ST7735_BLUE);
