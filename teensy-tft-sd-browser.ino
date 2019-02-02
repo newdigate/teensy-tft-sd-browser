@@ -10,9 +10,6 @@
 SdFat SD;
 #endif  // USE_SD_H
 
-// Example use of lfnOpenNext and open by index.
-// You can use test files located in
-// SdFat/examples/LongFileName/testFiles.a
 #include<SPI.h>
 
 #define ENC2A 29 
