@@ -58,14 +58,21 @@ public:
           filenames[i] = NULL;
         }
         dirIndex = new uint16_t[_nMaxFilesPerPage];
+        isDir = new bool[_nMaxFilesPerPage];
     }
 
     inline ~TFTSdDirectoryBrowser(){
-        for (int i=0; i<_nMaxFilesPerPage;i++)
-            if (filenames[i] != NULL)
-                delete [] filenames[i];
-
-        delete [] filenames;
+        if (filenames != NULL) {
+          
+          for (int i=0; i<_nMaxFilesPerPage;i++) 
+            if (filenames[i] != NULL) {
+              delete filenames[i];
+              filenames[i] = NULL;
+            }
+            
+          delete [] filenames;
+          filenames = NULL;
+        }
     }
 
     void initialize();
@@ -96,6 +103,7 @@ private:
     SdFat *_sd;
     Adafruit_GFX *_tft;
     char **filenames;
+    bool *isDir;
     uint16_t *dirIndex;
 
 
