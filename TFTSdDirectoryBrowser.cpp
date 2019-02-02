@@ -18,47 +18,33 @@ void TFTSdDirectoryBrowser::initialize() {
 
         file.close();
     }
-    Serial.print("totalFiles:");
-    Serial.println(_totalFiles, DEC);
 }
 
 void TFTSdDirectoryBrowser::reload() {
-    Serial.println("reload()");
     rewind(dirFile);
-    
-   
     if (_currentPage > 0) {
-        Serial.println("paging...");
         for (int i=0; i<_currentPage; i++){
             int nn = 0;
             while (nn < _nMaxFilesPerPage && openNext(file, dirFile)) {
                 if (!isHidden(file)){
-
-                    //Serial.print("skip:");
-                    //file.printName(&Serial);
-                    //Serial.println();
                     nn++;
                 }
                 file.close();
             }
         }
-        Serial.println("paging done...");
     }
 
-    Serial.println("cleanup...");
-    if (false)
-      for (int i=0; i<_nMaxFilesPerPage; i++) {
-          if (filenames[i])
-              delete [] filenames[i];
+    for (int i=0; i<_nMaxFilesPerPage; i++) {
+        if (filenames[i] != NULL)
+            delete [] filenames[i];
     }
-
-    Serial.println("indexing...");
+    
     int n = 0;
     int total = 0;
     while (n < _nMaxFilesPerPage && openNext(file, dirFile)) {
         // Skip hidden files.
         if (  !isHidden(file)){
-            filenames[n] = new char[32];
+            filenames[n] = new char[128];
 
             getFileName(file, filenames[n]);
 
@@ -77,9 +63,7 @@ void TFTSdDirectoryBrowser::update() {
     for (int i=0; i<_numFilesOnPage; i++) {
         // Print the file number and name.
         if (i + _currentPage*_nMaxFilesPerPage == _selectedFileIndex) {
-
             //selected index
-            //Serial.print(">>>");
             toggleSelection(i, true);
 
         } else {
@@ -109,8 +93,8 @@ void TFTSdDirectoryBrowser::getFileName(File &file, char *buf) {
 #if USE_SD_H
     strcpy(buf, file.name());
 #else
-    char *filename = new char[32] ;
-    file.getName(filename, 32);
+    char *filename = new char[128] ;
+    file.getName(filename, 128);
     strcpy(buf, filename);
     delete [] filename;
 #endif
@@ -128,23 +112,24 @@ bool TFTSdDirectoryBrowser::isSubDir(File &file) {
 #if USE_SD_H
     return file.isDirectory();
 #else
-    return file.isSubDir();
+    return file.isDirectory();
 #endif
 }
 
 void TFTSdDirectoryBrowser::toggleSelection(int i, bool selected) {
     _tft->setCursor(1, i * 8 +1 );
-    openFileIndex(file, dirFile, i);
+    open(filenames[i], file, dirFile);
     if (!isSubDir(file)) {
         _tft->setTextColor(
                 selected? _cFileSelectedForeground : _cFileForeground,
                 selected? _cFileSelectedBackground : _cFileBackground
         );
-    } else
+    } else {
         _tft->setTextColor(
                 selected? _cDirectorySelectedForeground : _cDirectoryForeground,
                 selected? _cDirectorySelectedBackground : _cDirectoryBackground
         );
+    }
     _tft->print(filenames[i]);
     file.close();
 }
@@ -167,6 +152,7 @@ void TFTSdDirectoryBrowser::setSelectFileIndex(int index) {
     }
 }
 
+
 bool TFTSdDirectoryBrowser::openNext(File &file, File &dirFile) {
 #if USE_SD_H
         file = dirFile.openNextFile(FILE_READ);
@@ -174,4 +160,17 @@ bool TFTSdDirectoryBrowser::openNext(File &file, File &dirFile) {
 #else
         return file.openNext(&dirFile, O_RDONLY);
 #endif
+}
+
+bool TFTSdDirectoryBrowser::open(char *filename, File &file, File &dirFile) {
+#if USE_SD_H
+        file = dirFile.open(filename, FILE_READ);
+        return file;
+#else
+        return file.open(&dirFile, filename, O_RDONLY);
+#endif
+}
+
+char * TFTSdDirectoryBrowser::selectedFilename() {
+  return filenames[_selectedFileIndex % _nMaxFilesPerPage];
 }
