@@ -66,11 +66,12 @@ TFTSdDirectoryBrowser browser(&tft, &SD, 16,
   ST7735_BLUE, ST7735_WHITE, 
   ST7735_GREEN, ST7735_BLACK,
   ST7735_GREEN, ST7735_WHITE);
-
 long last_millis = 0;
 long pos = 0;
 //------------------------------------------------------------------------------
 void setup() {
+  pinMode(BUTTON1, INPUT_PULLUP);
+    
   Serial.begin(9600);
   while (!Serial) {}
 
@@ -118,13 +119,14 @@ void loop() {
     }
     
     if (newLeft != pos) {
-
-      Serial.print("pos: ");
-      Serial.println(newLeft);
-      
       pos = newLeft;
-      browser.setSelectFileIndex(pos);       
+      browser.setSelectFileIndex(pos);     
     }
     last_millis = current_millis;
+  }
+  button0.update();
+  if ( button0.fallingEdge()) { 
+     Serial.print("SELECTED: ");
+     Serial.println( browser.selectedFilename());
   }
 }
