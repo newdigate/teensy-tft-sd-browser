@@ -17,4 +17,5 @@ This is a quick proof-of-concept to display contents of uSD card, allowing user 
 * Bounce
 * Encoder
 
-![directory browser](images/IMG_1023-sm.jpg)
+![directory browser SdFs](images/IMG_1023-sm.jpg)
+![directory browser SD](images/IMG_1025.jpg)
