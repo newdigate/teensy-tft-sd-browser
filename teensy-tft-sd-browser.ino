@@ -1,15 +1,19 @@
-// Set USE_SD_H nonzero to use SD.h.
-// Set USE_SD_H zero to use SdFs.h.
+#include "directives.h"
+#include "TFTSdDirectoryBrowser.h"
+
 //
-#define USE_SD_H 0
-//
-#if USE_SD_H
+#if USE_LEGACY_SD_LIB
 #include <SD.h>
 #else  // USE_SD_H
 #include "SdFs.h"
 SdFat SD;
 #endif  // USE_SD_H
 
+
+
+// Example use of lfnOpenNext and open by index.
+// You can use test files located in
+// SdFat/examples/LongFileName/testFiles.a
 #include<SPI.h>
 
 #define ENC2A 29 
@@ -44,7 +48,7 @@ const uint8_t SD_CS_PIN = SS;
 const uint8_t SD_CS_PIN = SDCARD_SS_PIN;
 #endif  // SDCARD_SS_PIN
 
-#if USE_SD_H
+#if USE_LEGACY_SD_LIB
 // using regular SD library
 #elif HAS_SDIO_CLASS
 #define SD_CONFIG SdioConfig(FIFO_SDIO)
@@ -54,9 +58,6 @@ const uint8_t SD_CS_PIN = SDCARD_SS_PIN;
 #define SD_CONFIG SdSpiConfig(SD_CS_PIN, SHARED_SPI)
 #endif  // HAS_SDIO_CLASS
 
-
-#define USE_SD_H 0
-#include "TFTSdDirectoryBrowser.h"
 
 TFTSdDirectoryBrowser browser(&tft, &SD, 16, 
   ST7735_BLUE, ST7735_BLACK, 
@@ -71,8 +72,8 @@ void setup() {
     
   Serial.begin(9600);
   while (!Serial) {}
-
-  #if USE_SD_H
+  
+  #if USE_LEGACY_SD_LIB
   if (!SD.begin(BUILTIN_SDCARD)) {
   }
   #else
@@ -81,6 +82,7 @@ void setup() {
   }
   #endif
 
+  
   tft.initR(INITR_GREENTAB);
   tft.fillScreen(ST7735_BLACK);
   tft.setRotation(1);
