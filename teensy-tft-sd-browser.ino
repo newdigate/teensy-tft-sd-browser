@@ -10,6 +10,9 @@
 SdFat SD;
 #endif  // USE_SD_H
 
+// Example use of lfnOpenNext and open by index.
+// You can use test files located in
+// SdFat/examples/LongFileName/testFiles.a
 #include<SPI.h>
 
 #define ENC2A 29 
@@ -54,22 +57,18 @@ const uint8_t SD_CS_PIN = SDCARD_SS_PIN;
 #define SD_CONFIG SdSpiConfig(SD_CS_PIN, SHARED_SPI)
 #endif  // HAS_SDIO_CLASS
 
-File file;
-File dirFile;
 
-// Number of files found.
-uint16_t n = 0;
-// Max of ten files since files are selected with a single digit.
-const uint16_t nMax = 16;
-// Position of file's directory entry.
-uint16_t dirIndex[nMax];
-char *filenames[nMax];
+#define USE_SD_H 0
+#include "TFTSdDirectoryBrowser.h"
 
-long currentPage = 0;
-long positionLeft  = -999;
-long selection = -1;
+TFTSdDirectoryBrowser browser(&tft, &SD, 16, 
+  ST7735_BLUE, ST7735_BLACK, 
+  ST7735_BLUE, ST7735_WHITE, 
+  ST7735_GREEN, ST7735_BLACK,
+  ST7735_GREEN, ST7735_WHITE);
+
 long last_millis = 0;
-long totalFiles = 0;
+long pos = 0;
 //------------------------------------------------------------------------------
 void setup() {
   Serial.begin(9600);
@@ -90,202 +89,42 @@ void setup() {
   tft.setTextColor(ST7735_BLUE,ST7735_BLACK);
   tft.setTextSize(1);
   tft.setTextWrap(false);
-  
-  dirFile = SD.open("/");
 
-  while (openNext(file, dirFile)) {
-    //Serial.println( file.name());
-    if (!isHidden(file))
-      totalFiles++;
-      
-    file.close();
-  }
+  browser.initialize();
   Serial.print("totalFiles:");
-  Serial.println(totalFiles, DEC);
-  loadDirectory();
+  Serial.print(browser.getTotalFileCount(), DEC);
+  browser.reload();
+  browser.update();
   knob.write(0);
-  positionLeft = 0;
-  displayDirectory();
+  pos = 0;
 }
 
 
-bool isHidden(const File &file) {
-  #if USE_SD_H
-  return false;
-  #else
-  return file.isHidden();
-  #endif
-}
-
-bool openNext(File &file, File &dirFile) {
-  #if USE_SD_H
-  file = dirFile.openNextFile(O_RDONLY);
-  return file;
-  #else
-  return file.openNext(&dirFile, O_RDONLY);
-  #endif 
-}
-
-void rewind(File &file) {
-  #if USE_SD_H
-    dirFile.rewindDirectory();
-  #else
-    dirFile.rewind();
-  #endif 
-}
-
-void loadDirectory() {
-
-  Serial.print("currentPage:");
-  Serial.println(currentPage, DEC);
-  rewind(dirFile);
-  
-  if (currentPage > 0) {
-
-    for (int i=0; i<currentPage; i++){
-      int nn = 0;
-      while (nn < nMax && openNext(file, dirFile)) {
-        if (!isHidden(file)){
-          
-          //Serial.print("skip:");         
-          //file.printName(&Serial);
-          //Serial.println();
-          nn++;
-        }
-        file.close();
-      }
-    }
-  }
-
-  for (int i=0; i<nMax; i++) {
-    if (filenames[i])
-      delete [] filenames[i];
-  }
- 
-  n = 0;
-  int total = 0;
-  while (n < nMax && openNext(file, dirFile)) {
-    // Skip hidden files.
-    if (  !isHidden(file)){
-      filenames[n] = new char[32];
-
-      getFileName(file, filenames[n]);
-
-      // Save dirIndex of file in directory.
-      dirIndex[n] = total + (currentPage*nMax);
-      n++;
-    }
-    total++;
-    file.close();
-  }
-}
-void getFileName(File &file, char *buf) {
-  #if USE_SD_H
-  strcpy(buf, file.name());
-  #else
-  char *filename = new char[32] ;
-  file.getName(filename, 32);     
-  strcpy(buf, filename);
-  delete [] filename;
-  #endif
-}
-void displayDirectory() {
-  //Serial.print("displayDirectory()");
-
-  for (int i=0; i<n; i++) {
-    // Print the file number and name.
-    if (i + currentPage*nMax == positionLeft) {
-    
-      //selected index
-      Serial.print(">>>");
-      selectFile(i);
-        
-    } else {
-      
-      deselectFile(i);
-    }
-  }
-} 
 //------------------------------------------------------------------------------
 
 void loop() {
   long current_millis = millis();
   if (current_millis > last_millis + 100) {
+    //Serial.print(".");
     // put your main code here, to run repeatedly:
     long newLeft;
     newLeft = knob.read() / 4;
     if (newLeft < 0) {
       knob.write(0);
       newLeft = 0;
-    } else if (newLeft > totalFiles-1) {
-      newLeft = totalFiles-1;
+    } else if (newLeft > browser.getTotalFileCount()-1) {
+      newLeft = browser.getTotalFileCount()-1;
       knob.write(newLeft*4);
     }
     
-    long newPage = newLeft / 16;
-    
-    if (newLeft != positionLeft || newPage != currentPage) {
+    if (newLeft != pos) {
 
-      //Serial.print("pos: ");
-      //Serial.println(newLeft);
+      Serial.print("pos: ");
+      Serial.println(newLeft);
       
-      if (newPage != currentPage) {
-        currentPage = newPage;
-        Serial.print("page:");
-        Serial.println(currentPage);
-        positionLeft = newLeft; 
-        tft.fillScreen(ST7735_BLACK);
-        loadDirectory();
-        displayDirectory();
-      } else {
-        deselectFile(positionLeft % nMax);        
-        positionLeft = newLeft;         
-        selectFile(positionLeft % nMax);
-      }
-
+      pos = newLeft;
+      browser.setSelectFileIndex(pos);       
     }
     last_millis = current_millis;
   }
-}
-
-void openFileIndex(File &file, File &dir, int index)
-{
-  #if USE_SD_H
-  file = SD.open(filenames[index], O_RDONLY);
-  #else
-  file.open(&dir, dirIndex[index], O_RDONLY);
-  #endif
-}
-
-bool isSubDir(File &file) {
-  #if USE_SD_H
-  return file.isDirectory();
-  #else
-  return file.isSubDir();
-  #endif  
-}
-
-void deselectFile(int i) {
-  tft.setCursor(1, i * 8 +1 );
-  
-  openFileIndex(file, dirFile, i);
-  if (!isSubDir(file)) {
-    tft.setTextColor(ST7735_BLUE, ST7735_BLACK);  
-  } else
-    tft.setTextColor(ST7735_CYAN, ST7735_BLACK);
-    
-  tft.print(filenames[i]);
-  Serial.println(filenames[i]);
-  file.close();
-}
-
-void selectFile(int i) {
-  tft.setCursor(1, i * 8 +1 );
-  openFileIndex(file, dirFile, i);
-  if (!isSubDir(file)) {
-    tft.setTextColor(ST7735_MAGENTA, ST7735_BLUE);  
-  } else
-    tft.setTextColor(ST7735_CYAN, ST7735_BLUE);
-  tft.print(filenames[i]);
-  file.close();
 }
