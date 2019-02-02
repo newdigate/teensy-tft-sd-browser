@@ -12,7 +12,6 @@ void TFTSdDirectoryBrowser::initialize() {
     dirFile = _sd->open("/");
 
     while (openNext(file, dirFile)) {
-        //Serial.println( file.name());
         if (!isHidden(file))
             _totalFiles++;
 
@@ -21,7 +20,11 @@ void TFTSdDirectoryBrowser::initialize() {
 }
 
 void TFTSdDirectoryBrowser::reload() {
-    rewind(dirFile);
+
+    if (dirFile)
+      dirFile.close();
+      
+    dirFile = _sd->open("/");
     if (_currentPage > 0) {
         for (int i=0; i<_currentPage; i++){
             int nn = 0;
@@ -33,19 +36,15 @@ void TFTSdDirectoryBrowser::reload() {
             }
         }
     }
-
-    for (int i=0; i<_nMaxFilesPerPage; i++) {
-        if (filenames[i] != NULL)
-            delete [] filenames[i];
-    }
     
     int n = 0;
     int total = 0;
     while (n < _nMaxFilesPerPage && openNext(file, dirFile)) {
         // Skip hidden files.
-        if (  !isHidden(file)){
-            filenames[n] = new char[128];
-
+        if (!isHidden(file)){
+            isDir[n] = isSubDir(file);
+            if (filenames[n] == NULL)
+               filenames[n] = new char[100];
             getFileName(file, filenames[n]);
 
             // Save dirIndex of file in directory.
@@ -53,7 +52,7 @@ void TFTSdDirectoryBrowser::reload() {
             n++;
         }
         total++;
-        file.close();
+        if (file) file.close();
     }
     _numFilesOnPage = n;
 }
@@ -61,13 +60,10 @@ void TFTSdDirectoryBrowser::reload() {
 void TFTSdDirectoryBrowser::update() {
     _tft->fillScreen(_cFileBackground);
     for (int i=0; i<_numFilesOnPage; i++) {
-        // Print the file number and name.
         if (i + _currentPage*_nMaxFilesPerPage == _selectedFileIndex) {
             //selected index
             toggleSelection(i, true);
-
         } else {
-
             toggleSelection(i, false);
         }
     }
@@ -118,8 +114,7 @@ bool TFTSdDirectoryBrowser::isSubDir(File &file) {
 
 void TFTSdDirectoryBrowser::toggleSelection(int i, bool selected) {
     _tft->setCursor(1, i * 8 +1 );
-    open(filenames[i], file, dirFile);
-    if (!isSubDir(file)) {
+    if (!isDir[i]) {
         _tft->setTextColor(
                 selected? _cFileSelectedForeground : _cFileForeground,
                 selected? _cFileSelectedBackground : _cFileBackground
@@ -131,13 +126,10 @@ void TFTSdDirectoryBrowser::toggleSelection(int i, bool selected) {
         );
     }
     _tft->print(filenames[i]);
-    file.close();
 }
 
 void TFTSdDirectoryBrowser::setSelectFileIndex(int index) {
     if (_selectedFileIndex != index) {
-
-
         long newPage = index / _nMaxFilesPerPage;
         if (_currentPage != newPage) {
             _currentPage = newPage;
