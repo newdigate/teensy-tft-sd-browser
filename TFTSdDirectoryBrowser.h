@@ -53,13 +53,16 @@ public:
              _cFileSelectedForeground(cFileSelectedForeground),
              _cFileSelectedBackground(cFileSelectedBackground)
     {
-        filenames = new char*[nMax];
-        dirIndex = new uint16_t[nMax];
+        filenames = new char*[_nMaxFilesPerPage];
+        for (int i=0; i<_nMaxFilesPerPage; i++) {
+          filenames[i] = NULL;
+        }
+        dirIndex = new uint16_t[_nMaxFilesPerPage];
     }
 
     inline ~TFTSdDirectoryBrowser(){
         for (int i=0; i<_nMaxFilesPerPage;i++)
-            if (filenames[i])
+            if (filenames[i] != NULL)
                 delete [] filenames[i];
 
         delete [] filenames;
@@ -70,6 +73,7 @@ public:
     void setSelectFileIndex(int index);
     void update();
     unsigned long getTotalFileCount();
+    char * selectedFilename();
 private:
     long _currentPage   = 0;
     long _selectedFileIndex     = -1;
@@ -94,6 +98,8 @@ private:
     char **filenames;
     uint16_t *dirIndex;
 
+
+    bool open(char *filename, File &file, File &dirFile);
     bool isHidden(const File &file);
     bool openNext(File &file, File &dirFile);
     void rewind(File &file);
